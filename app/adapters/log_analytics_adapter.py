@@ -38,8 +38,9 @@ class LogAnalyticsAdapter(LogSenderPort):
             dcr_immutable_id: DCR の Immutable ID（DCR_IMMUTABLE_ID 環境変数）。
             dcr_stream_name: DCR ストリーム名（DCR_STREAM_NAME 環境変数）。
         """
-        # TODO: 実装する
-        raise NotImplementedError
+        self._client = LogsIngestionClient(endpoint=dce_endpoint, credential=credential)
+        self._dcr_immutable_id = dcr_immutable_id
+        self._dcr_stream_name = dcr_stream_name
 
     def send(self, records: List[EndpointRecord]) -> None:
         """レコードを Log Analytics に一括アップロードする。
@@ -54,5 +55,14 @@ class LogAnalyticsAdapter(LogSenderPort):
         Raises:
             azure.core.exceptions.HttpResponseError: インジェスト API エラー（認証失敗・不正な DCR ID 等）。
         """
-        # TODO: 実装する
-        raise NotImplementedError
+        if not records:
+            logger.info("送信レコードなし。スキップ。")
+            return
+
+        logs = [record.to_log_dict() for record in records]
+        self._client.upload(
+            rule_id=self._dcr_immutable_id,
+            stream_name=self._dcr_stream_name,
+            logs=logs,
+        )
+        logger.info("Log Analytics に %d 件を送信しました", len(logs))

@@ -40,5 +40,41 @@ class Config:
         Raises:
             ValueError: 必須環境変数が未設定、または WORKSPACE_LIST が不正な JSON の場合。
         """
-        # TODO: 実装する
-        raise NotImplementedError
+        def _require(key: str) -> str:
+            val = os.environ.get(key)
+            if not val:
+                raise ValueError(f"必須環境変数 '{key}' が未設定です")
+            return val
+
+        raw_workspace_list = _require("WORKSPACE_LIST")
+        dce_endpoint = _require("DCE_ENDPOINT")
+        dcr_immutable_id = _require("DCR_IMMUTABLE_ID")
+        dcr_stream_name = _require("DCR_STREAM_NAME")
+
+        try:
+            workspace_data = json.loads(raw_workspace_list)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"WORKSPACE_LIST が不正な JSON です: {e}") from e
+
+        if not isinstance(workspace_data, list):
+            raise ValueError("WORKSPACE_LIST は JSON 配列である必要があります")
+
+        workspace_list: List[WorkspaceConfig] = []
+        for i, item in enumerate(workspace_data):
+            try:
+                workspace_list.append(WorkspaceConfig(
+                    workspace_id=item["workspace_id"],
+                    workspace_url=item["workspace_url"],
+                    monitor_enabled=item["monitor_enabled"],
+                ))
+            except KeyError as e:
+                raise ValueError(
+                    f"WORKSPACE_LIST[{i}] に必須フィールドがありません: {e}"
+                ) from e
+
+        return cls(
+            workspace_list=workspace_list,
+            dce_endpoint=dce_endpoint,
+            dcr_immutable_id=dcr_immutable_id,
+            dcr_stream_name=dcr_stream_name,
+        )

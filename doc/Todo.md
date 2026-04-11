@@ -25,42 +25,42 @@
 
 ### 設定・モデル
 
-- [ ] `config.py`: `Config.from_env()` 実装（JSON parse、バリデーション）
-- [ ] `domain/model.py`: `EndpointRecord.to_log_dict()` 実装（LAフィールド名マッピング）
+- [x] `config.py`: `Config.from_env()` 実装（JSON parse、バリデーション）
+- [x] `domain/model.py`: `EndpointRecord.to_log_dict()` 実装（LAフィールド名マッピング）
 
 ### ポート実装（アダプター）
 
-- [ ] `adapters/databricks_adapter.py`: `DatabricksAdapter.fetch_endpoints()` 実装
+- [x] `adapters/databricks_adapter.py`: `DatabricksAdapter.fetch_endpoints()` 実装
   - credential.get_token() でAzureトークン取得
   - WorkspaceClient 初期化
   - serving_endpoints.list() 呼び出し
   - as_dict() でシリアライズ
-- [ ] `adapters/log_analytics_adapter.py`: `LogAnalyticsAdapter.send()` 実装
+- [x] `adapters/log_analytics_adapter.py`: `LogAnalyticsAdapter.send()` 実装
   - records が空の場合は早期リターン
   - to_log_dict() で変換
   - LogsIngestionClient.upload() 呼び出し
 
 ### ドメインサービス
 
-- [ ] `domain/service.py`: `EndpointMonitorService.run()` 実装
+- [x] `domain/service.py`: `EndpointMonitorService.run()` 実装
   - monitor_enabled=False のスキップ
   - ワークスペース毎のtry/except
   - エラーレコード生成（api_status_code, api_error_message）
-- [ ] `domain/service.py`: `_process_workspace()` 実装
+- [x] `domain/service.py`: `_process_workspace()` 実装
 
 ### エントリーポイント
 
-- [ ] `function_app.py`: DI配線実装
+- [x] `function_app.py`: DI配線実装
   - DefaultAzureCredential / ManagedIdentityCredential 選択
   - Config.from_env() 呼び出し
   - EndpointMonitorService インスタンス化
   - run() 呼び出し → send() 呼び出し
   - 実行結果ログ出力
-- [ ] `local.settings.json`: 開発用環境変数追加（WORKSPACE_LIST 等のダミー値）
+- [x] `local.settings.json`: 開発用環境変数追加（WORKSPACE_LIST 等のダミー値）
 
 ### インフラ（別タスク）
 
-- [ ] `infra/main.tf`: カスタムテーブルスキーマをデータモデルに合わせて更新
+- [x] `infra/main.tf`: カスタムテーブルスキーマをデータモデルに合わせて更新
 
 ---
 

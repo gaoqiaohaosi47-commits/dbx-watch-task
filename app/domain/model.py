@@ -55,5 +55,12 @@ class EndpointRecord:
         Returns:
             Dict[str, Any]: Log Analytics Ingestion API に渡す dict。
         """
-        # TODO: 実装する
-        raise NotImplementedError
+        return {
+            "TimeGenerated": self.time_generated,
+            "workspace_url": self.workspace_url,
+            "api_status_code": self.api_status_code,
+            "api_error_message": self.api_error_message,
+            "endpoint_name": self.endpoint_name,
+            "endpoint_state": self.endpoint_state,
+            "endpoint_raw_data": self.endpoint_raw_data,
+        }

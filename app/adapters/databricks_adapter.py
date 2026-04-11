@@ -40,8 +40,7 @@ class DatabricksAdapter(ServingEndpointPort):
                 本番: ManagedIdentityCredential
                 テスト: モッククレデンシャル
         """
-        # TODO: 実装する
-        raise NotImplementedError
+        self._credential = credential
 
     def fetch_endpoints(self, workspace: WorkspaceConfig) -> List[Dict[str, Any]]:
         """指定ワークスペースの全サービングエンドポイントを取得する。
@@ -62,5 +61,7 @@ class DatabricksAdapter(ServingEndpointPort):
             databricks.sdk.errors.DatabricksError: 認証・権限・API エラー。
             Exception: その他の接続エラー（タイムアウト等）。
         """
-        # TODO: 実装する
-        raise NotImplementedError
+        token = self._credential.get_token(f"{AZURE_DATABRICKS_RESOURCE_ID}/.default")
+        w = WorkspaceClient(host=workspace.workspace_url, token=token.token)
+        endpoints = w.serving_endpoints.list()
+        return [ep.as_dict() for ep in endpoints]
