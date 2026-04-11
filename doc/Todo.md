@@ -82,3 +82,6 @@
 - [ ] `tests/integration/` ディレクトリ作成
 - [ ] テストケース `doc/TestCases.md` の IT-01〜IT-30 を実施（Azure 実環境が必要）
 - [ ] テスト結果をTestCases.mdに記録
+
+
+- [ ] Timeout処理のバグ修正、テスト反映
