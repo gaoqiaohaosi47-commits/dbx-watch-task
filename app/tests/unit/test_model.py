@@ -107,3 +107,28 @@ def test_to_log_dict_failure_null_fields():
     assert d["endpoint_name"] is None
     assert d["endpoint_state"] is None
     assert d["endpoint_raw_data"] is None
+
+
+# UT-29: to_log_dict() が期待する全8キーを過不足なく返す
+def test_to_log_dict_has_all_expected_keys():
+    rec = EndpointRecord(
+        time_generated=TIMESTAMP,
+        workspace_id=WS_ID,
+        workspace_url=WS_URL,
+        api_status_code=200,
+        api_error_message=None,
+        endpoint_name="ep",
+        endpoint_state="READY",
+        endpoint_raw_data={},
+    )
+    expected_keys = {
+        "TimeGenerated",
+        "workspace_id",
+        "workspace_url",
+        "api_status_code",
+        "api_error_message",
+        "endpoint_name",
+        "endpoint_state",
+        "endpoint_raw_data",
+    }
+    assert set(rec.to_log_dict().keys()) == expected_keys

@@ -74,3 +74,79 @@ def test_from_env_workspace_list_not_array(monkeypatch):
 
     with pytest.raises(ValueError, match="JSON 配列"):
         Config.from_env()
+
+
+# UT-31: WORKSPACE_LIST が未設定 → ValueError
+def test_from_env_missing_workspace_list(monkeypatch):
+    _set_all_env(monkeypatch)
+    monkeypatch.delenv("WORKSPACE_LIST")
+
+    with pytest.raises(ValueError, match="WORKSPACE_LIST"):
+        Config.from_env()
+
+
+# UT-32: DCR_IMMUTABLE_ID が未設定 → ValueError
+def test_from_env_missing_dcr_immutable_id(monkeypatch):
+    _set_all_env(monkeypatch)
+    monkeypatch.delenv("DCR_IMMUTABLE_ID")
+
+    with pytest.raises(ValueError, match="DCR_IMMUTABLE_ID"):
+        Config.from_env()
+
+
+# UT-33: DCR_STREAM_NAME が未設定 → ValueError
+def test_from_env_missing_dcr_stream_name(monkeypatch):
+    _set_all_env(monkeypatch)
+    monkeypatch.delenv("DCR_STREAM_NAME")
+
+    with pytest.raises(ValueError, match="DCR_STREAM_NAME"):
+        Config.from_env()
+
+
+# UT-34: WORKSPACE_LIST 要素に workspace_id が欠落 → ValueError
+def test_from_env_workspace_missing_workspace_id(monkeypatch):
+    _set_all_env(
+        monkeypatch,
+        workspace_list='[{"workspace_url":"https://adb-1.azuredatabricks.net","monitor_enabled":true}]',
+    )
+
+    with pytest.raises(ValueError, match="必須フィールドがありません"):
+        Config.from_env()
+
+
+# UT-35: WORKSPACE_LIST 要素に monitor_enabled が欠落 → ValueError
+def test_from_env_workspace_missing_monitor_enabled(monkeypatch):
+    _set_all_env(
+        monkeypatch,
+        workspace_list='[{"workspace_id":"1","workspace_url":"https://adb-1.azuredatabricks.net"}]',
+    )
+
+    with pytest.raises(ValueError, match="必須フィールドがありません"):
+        Config.from_env()
+
+
+# UT-43: WORKSPACE_LIST 要素に workspace_url が欠落 → ValueError
+def test_from_env_workspace_missing_workspace_url(monkeypatch):
+    _set_all_env(
+        monkeypatch,
+        workspace_list='[{"workspace_id":"1","monitor_enabled":true}]',
+    )
+
+    with pytest.raises(ValueError, match="必須フィールドがありません"):
+        Config.from_env()
+
+
+# UT-44: WORKSPACE_LIST が2件 → 両方のワークスペースが正しく読み込まれる
+def test_from_env_multiple_workspaces(monkeypatch):
+    workspace_list = (
+        '[{"workspace_id":"ws1","workspace_url":"https://adb-1.azuredatabricks.net","monitor_enabled":true},'
+        '{"workspace_id":"ws2","workspace_url":"https://adb-2.azuredatabricks.net","monitor_enabled":false}]'
+    )
+    _set_all_env(monkeypatch, workspace_list=workspace_list)
+    config = Config.from_env()
+
+    assert len(config.workspace_list) == 2
+    assert config.workspace_list[0].workspace_id == "ws1"
+    assert config.workspace_list[0].monitor_enabled is True
+    assert config.workspace_list[1].workspace_id == "ws2"
+    assert config.workspace_list[1].monitor_enabled is False

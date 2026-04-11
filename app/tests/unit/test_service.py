@@ -46,6 +46,8 @@ def test_run_workspace_exception_returns_error_record():
     assert records[0].api_status_code == 0
     assert "connection timeout" in records[0].api_error_message
     assert records[0].endpoint_name is None
+    assert records[0].endpoint_state is None
+    assert records[0].endpoint_raw_data is None
 
 
 # UT-13: 正常 — monitor_enabled=False のワークスペースはスキップ
@@ -125,3 +127,109 @@ def test_run_not_ready_endpoint():
 
     assert records[0].api_status_code == 200
     assert records[0].endpoint_state == "NOT_READY"
+
+
+# UT-25: workspace_id が成功レコードに正しく記録される
+def test_run_workspace_id_in_success_record():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.return_value = [_make_ep_dict()]
+
+    ws = WorkspaceConfig("ws-id-9999", "https://adb-9999.azuredatabricks.net", True)
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([ws])
+
+    assert records[0].workspace_id == "ws-id-9999"
+
+
+# UT-26: workspace_id が例外時（エラーレコード）にも記録される
+def test_run_workspace_id_in_error_record():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.side_effect = Exception("network error")
+
+    ws = WorkspaceConfig("ws-id-error", "https://adb-error.azuredatabricks.net", True)
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([ws])
+
+    assert records[0].workspace_id == "ws-id-error"
+
+
+# UT-27: status_code 属性を持つ例外 → api_status_code にそのコードが記録される
+def test_run_error_record_uses_exception_status_code():
+    mock_port = MagicMock()
+    exc = Exception("permission denied")
+    exc.status_code = 403
+    mock_port.fetch_endpoints.side_effect = exc
+
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([_make_ws()])
+
+    assert records[0].api_status_code == 403
+
+
+# UT-28: status_code 属性を持たない例外 → api_status_code=0 になる
+def test_run_error_record_status_code_defaults_to_zero():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.side_effect = ConnectionError("timeout")
+
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([_make_ws()])
+
+    assert records[0].api_status_code == 0
+
+
+# UT-36: workspace_list が空リストのとき空リストを返す
+def test_run_empty_workspace_list():
+    mock_port = MagicMock()
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([])
+
+    assert records == []
+    mock_port.fetch_endpoints.assert_not_called()
+
+
+# UT-37: api_error_message が str(e) に変換されている
+def test_run_error_message_is_stringified():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.side_effect = RuntimeError("detailed error info")
+
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([_make_ws()])
+
+    assert records[0].api_error_message == "detailed error info"
+
+
+# UT-38: time_generated が UTC ISO8601 形式（+00:00 を含む）になっている
+def test_run_time_generated_is_utc_iso8601():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.return_value = [_make_ep_dict()]
+
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    records = service.run([_make_ws()])
+
+    assert "+00:00" in records[0].time_generated
+
+
+# UT-41: 3WSのうちmonitor_enabled=FalseのWSはスキップ → fetch_endpoints が2回だけ呼ばれる
+def test_run_mixed_monitor_enabled_skips_disabled():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.return_value = []
+
+    ws1 = WorkspaceConfig("1", "https://adb-1.azuredatabricks.net", True)
+    ws2 = WorkspaceConfig("2", "https://adb-2.azuredatabricks.net", False)
+    ws3 = WorkspaceConfig("3", "https://adb-3.azuredatabricks.net", True)
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    service.run([ws1, ws2, ws3])
+
+    assert mock_port.fetch_endpoints.call_count == 2
+
+
+# UT-42: fetch_endpoints に渡される引数が正しい WorkspaceConfig になっている
+def test_run_passes_correct_workspace_to_adapter():
+    mock_port = MagicMock()
+    mock_port.fetch_endpoints.return_value = []
+
+    ws = WorkspaceConfig("id-xyz", "https://adb-xyz.azuredatabricks.net", True)
+    service = EndpointMonitorService(endpoint_port=mock_port)
+    service.run([ws])
+
+    mock_port.fetch_endpoints.assert_called_once_with(ws)

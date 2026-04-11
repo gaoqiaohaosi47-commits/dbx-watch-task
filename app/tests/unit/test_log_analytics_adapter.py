@@ -86,3 +86,27 @@ def test_send_logs_contain_time_generated():
     _, kwargs = mock_client.upload.call_args
     assert "TimeGenerated" in kwargs["logs"][0]
     assert kwargs["logs"][0]["TimeGenerated"] == TIMESTAMP
+
+
+# UT-30: upload に渡される logs の各要素に workspace_id が含まれる
+def test_send_logs_contain_workspace_id():
+    mock_client = MagicMock()
+    adapter = _make_adapter(mock_client)
+
+    adapter.send([_make_record()])
+
+    _, kwargs = mock_client.upload.call_args
+    assert "workspace_id" in kwargs["logs"][0]
+    assert kwargs["logs"][0]["workspace_id"] == "1234567890123456"
+
+
+# UT-40: 1件のレコードでも upload が正常に呼ばれる（境界）
+def test_send_single_record():
+    mock_client = MagicMock()
+    adapter = _make_adapter(mock_client)
+
+    adapter.send([_make_record()])
+
+    mock_client.upload.assert_called_once()
+    _, kwargs = mock_client.upload.call_args
+    assert len(kwargs["logs"]) == 1

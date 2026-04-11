@@ -124,3 +124,20 @@ def test_fetch_endpoints_empty():
         result = adapter.fetch_endpoints(WS)
 
     assert result == []
+
+
+# UT-39: 各エンドポイントオブジェクトに対して as_dict() が呼ばれる
+def test_fetch_endpoints_calls_as_dict_for_each():
+    credential = _make_credential()
+    ep1 = MagicMock()
+    ep1.as_dict.return_value = {"name": "ep1"}
+    ep2 = MagicMock()
+    ep2.as_dict.return_value = {"name": "ep2"}
+
+    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
+        mock_wc_cls.return_value.serving_endpoints.list.return_value = [ep1, ep2]
+        adapter = DatabricksAdapter(credential)
+        adapter.fetch_endpoints(WS)
+
+    ep1.as_dict.assert_called_once()
+    ep2.as_dict.assert_called_once()
