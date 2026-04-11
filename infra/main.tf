@@ -155,6 +155,11 @@ resource "azurerm_monitor_data_collection_endpoint" "dce" {
   location            = local.rg_location
   resource_group_name = local.rg_name
 
+  depends_on = [
+    azurerm_resource_group.new,
+    data.azurerm_resource_group.existing,
+  ]
+
   lifecycle {
     create_before_destroy = true
   }
@@ -170,7 +175,11 @@ resource "azapi_resource" "dcr" {
   location  = local.rg_location
   parent_id = local.rg_id
 
-  depends_on = [azapi_resource.custom_table]
+  depends_on = [
+    azapi_resource.custom_table,
+    azurerm_resource_group.new,
+    data.azurerm_resource_group.existing,
+  ]
 
   body = {
     properties = {
