@@ -7,14 +7,14 @@ import pytest
 
 from domain.model import EndpointRecord, WorkspaceConfig
 
-WS_URL = "https://adb-1991908275471167.7.azuredatabricks.net"
+WS_URL = "https://adb-1234567890123456.7.azuredatabricks.net"
 TIMESTAMP = "2026-04-11T10:00:00+00:00"
 
 
 # UT-01: WorkspaceConfig 正常生成
 def test_workspace_config_normal():
-    ws = WorkspaceConfig(workspace_id="1991908275471167", workspace_url=WS_URL, monitor_enabled=True)
-    assert ws.workspace_id == "1991908275471167"
+    ws = WorkspaceConfig(workspace_id="1234567890123456", workspace_url=WS_URL, monitor_enabled=True)
+    assert ws.workspace_id == "1234567890123456"
     assert ws.workspace_url == WS_URL
     assert ws.monitor_enabled is True
 

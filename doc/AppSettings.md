@@ -5,8 +5,8 @@
 | 設定キー | 必須 | 値の例 | 説明 |
 |---|---|---|---|
 | `WORKSPACE_LIST` | Yes | `[{"workspace_id":"...","workspace_url":"...","monitor_enabled":true}]` | 監視対象DatabricksワークスペースのJSON配列（1行） |
-| `DCE_ENDPOINT` | Yes | `https://dce-example-qrug.eastus-1.ingest.monitor.azure.com` | Data Collection Endpoint のURL |
-| `DCR_IMMUTABLE_ID` | Yes | `dcr-b80d5e23335b429c9bf3fa159916335d` | DCR の Immutable ID |
+| `DCE_ENDPOINT` | Yes | `https://<dce-name>.<region>.ingest.monitor.azure.com` | Data Collection Endpoint のURL |
+| `DCR_IMMUTABLE_ID` | Yes | `dcr-<immutable-id>` | DCR の Immutable ID |
 | `DCR_STREAM_NAME` | Yes | `Custom-AppLogs` | DCRストリーム名（LAカスタムテーブルへのマッピング） |
 | `FUNCTIONS_WORKER_RUNTIME` | Yes | `python` | Azure Functionsランタイム指定（自動設定） |
 | `AzureWebJobsStorage` | Yes | `UseDevelopmentStorage=true`（開発時） | Timerトリガーの状態管理ストレージ |
@@ -28,13 +28,13 @@ JSON配列形式で設定する。複数ワークスペースを含む場合も1
 ### 設定例（1ワークスペース）
 
 ```json
-[{"workspace_id":"1991908275471167","workspace_url":"https://adb-1991908275471167.7.azuredatabricks.net","monitor_enabled":true}]
+[{"workspace_id":"<workspace-id>","workspace_url":"https://adb-<workspace-id>.<N>.azuredatabricks.net","monitor_enabled":true}]
 ```
 
 ### 設定例（複数ワークスペース、一部無効化）
 
 ```json
-[{"workspace_id":"1991908275471167","workspace_url":"https://adb-1991908275471167.7.azuredatabricks.net","monitor_enabled":true},{"workspace_id":"9876543210123456","workspace_url":"https://adb-9876543210123456.1.azuredatabricks.net","monitor_enabled":false}]
+[{"workspace_id":"<workspace-id-1>","workspace_url":"https://adb-<workspace-id-1>.<N>.azuredatabricks.net","monitor_enabled":true},{"workspace_id":"<workspace-id-2>","workspace_url":"https://adb-<workspace-id-2>.<N>.azuredatabricks.net","monitor_enabled":false}]
 ```
 
 ---
@@ -51,9 +51,9 @@ JSON配列形式で設定する。複数ワークスペースを含む場合も1
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "python",
-    "WORKSPACE_LIST": "[{\"workspace_id\":\"1991908275471167\",\"workspace_url\":\"https://adb-1991908275471167.7.azuredatabricks.net\",\"monitor_enabled\":true}]",
-    "DCE_ENDPOINT": "https://dce-example-qrug.eastus-1.ingest.monitor.azure.com",
-    "DCR_IMMUTABLE_ID": "dcr-b80d5e23335b429c9bf3fa159916335d",
+    "WORKSPACE_LIST": "[{\"workspace_id\":\"<workspace-id>\",\"workspace_url\":\"https://adb-<workspace-id>.<N>.azuredatabricks.net\",\"monitor_enabled\":true}]",
+    "DCE_ENDPOINT": "https://<dce-name>.<region>.ingest.monitor.azure.com",
+    "DCR_IMMUTABLE_ID": "dcr-<immutable-id>",
     "DCR_STREAM_NAME": "Custom-AppLogs"
   }
 }

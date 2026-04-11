@@ -8,8 +8,8 @@ import pytest
 from config import Config
 
 VALID_WORKSPACE_LIST = (
-    '[{"workspace_id":"1991908275471167",'
-    '"workspace_url":"https://adb-1991908275471167.7.azuredatabricks.net",'
+    '[{"workspace_id":"1234567890123456",'
+    '"workspace_url":"https://adb-1234567890123456.7.azuredatabricks.net",'
     '"monitor_enabled":true}]'
 )
 
@@ -27,8 +27,8 @@ def test_from_env_normal(monkeypatch):
     config = Config.from_env()
 
     assert len(config.workspace_list) == 1
-    assert config.workspace_list[0].workspace_id == "1991908275471167"
-    assert config.workspace_list[0].workspace_url == "https://adb-1991908275471167.7.azuredatabricks.net"
+    assert config.workspace_list[0].workspace_id == "1234567890123456"
+    assert config.workspace_list[0].workspace_url == "https://adb-1234567890123456.7.azuredatabricks.net"
     assert config.workspace_list[0].monitor_enabled is True
     assert config.dce_endpoint == "https://dce-example.eastus-1.ingest.monitor.azure.com"
     assert config.dcr_immutable_id == "dcr-abc123"

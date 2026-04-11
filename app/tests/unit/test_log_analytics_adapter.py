@@ -15,7 +15,7 @@ DCE = "https://dce-example.eastus-1.ingest.monitor.azure.com"
 DCR_ID = "dcr-abc123"
 STREAM = "Custom-AppLogs"
 TIMESTAMP = "2026-04-11T10:00:00+00:00"
-WS_URL = "https://adb-1991908275471167.7.azuredatabricks.net"
+WS_URL = "https://adb-1234567890123456.7.azuredatabricks.net"
 
 
 def _make_record(status=200):

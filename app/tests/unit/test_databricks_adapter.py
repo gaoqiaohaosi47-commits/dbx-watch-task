@@ -11,8 +11,8 @@ from adapters.databricks_adapter import AZURE_DATABRICKS_RESOURCE_ID, Databricks
 from domain.model import WorkspaceConfig
 
 WS = WorkspaceConfig(
-    workspace_id="1991908275471167",
-    workspace_url="https://adb-1991908275471167.7.azuredatabricks.net",
+    workspace_id="1234567890123456",
+    workspace_url="https://adb-1234567890123456.7.azuredatabricks.net",
     monitor_enabled=True,
 )
 
