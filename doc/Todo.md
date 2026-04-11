@@ -68,15 +68,17 @@
 
 ### ユニットテスト
 
-- [ ] `tests/unit/` ディレクトリ作成
-- [ ] `test_model.py`: WorkspaceConfig / EndpointRecord テスト
-- [ ] `test_config.py`: Config.from_env() テスト（正常・異常・境界）
-- [ ] `test_service.py`: EndpointMonitorService.run() テスト（モックアダプター使用）
-- [ ] `test_databricks_adapter.py`: DatabricksAdapter テスト（SDK モック）
-- [ ] `test_log_analytics_adapter.py`: LogAnalyticsAdapter テスト（クライアントモック）
+- [x] `tests/unit/` ディレクトリ作成
+- [x] `test_model.py`: WorkspaceConfig / EndpointRecord テスト
+- [x] `test_config.py`: Config.from_env() テスト（正常・異常・境界）
+- [x] `test_service.py`: EndpointMonitorService.run() テスト（モックアダプター使用）
+- [x] `test_databricks_adapter.py`: DatabricksAdapter テスト（SDK モック）
+- [x] `test_log_analytics_adapter.py`: LogAnalyticsAdapter テスト（クライアントモック）
+- [x] `test_ports.py`: ServingEndpointPort / LogSenderPort ABC 強制テスト
+- 実行結果: **33 passed** (`pytest --tb=short -q`)
 
 ### 内部結合テスト
 
 - [ ] `tests/integration/` ディレクトリ作成
-- [ ] テストケース `doc/TestCases.md` の IT-01〜IT-30 を実施
+- [ ] テストケース `doc/TestCases.md` の IT-01〜IT-30 を実施（Azure 実環境が必要）
 - [ ] テスト結果をTestCases.mdに記録
