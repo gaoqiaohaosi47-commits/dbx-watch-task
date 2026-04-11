@@ -1,0 +1,36 @@
+{
+  "name": "Azure Functions (Python 3)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [
+    7071,
+    10000,
+    10001,
+    10002
+  ],
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12",
+      "installTools": false
+    },
+    "ghcr.io/jlaundry/devcontainer-features/azure-functions-core-tools:1": {
+      "version": "latest"
+	},
+	"ghcr.io/devcontainers/features/azure-cli:1": {
+		"version": "latest",
+		"bicepVersion": "latest"
+	}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-azurefunctions",
+        "ms-python.python"
+      ]
+    }
+  }
+}
