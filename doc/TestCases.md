@@ -20,7 +20,7 @@
 | IT-06 | 異常 | Databricks認証失敗（401） | マネージドIDにDatabricksのエンタイトルメントなし | 正常な環境変数 | Functionを実行する | api_status_code=401 のエラーレコードがLAに送信される |
 | IT-07 | 異常 | Databricks認証失敗（403） | マネージドIDが権限不足 | 正常な環境変数 | Functionを実行する | api_status_code=403 のエラーレコードがLAに送信される |
 | IT-08 | 異常 | LAインジェスト失敗（認証不足） | DCRに対してMonitoring Metrics Publisherロールなし | 正常な環境変数（DCRの権限のみ欠如） | Functionを実行する | LogAnalyticsAdapter.send()で例外が発生し、ログに出力される |
-| IT-09 | 異常 | ネットワークエラー（Databricks到達不能） | Databricksエンドポイントへの経路なし | 正常な環境変数 | Functionを実行する | api_status_code=0、api_error_message にタイムアウト等の内容が含まれるエラーレコードが生成される |
+| IT-09 | 異常 | ネットワークエラー（Databricks到達不能） | 存在しないホスト名（例: `xxxxxxxxxxxx.xxxxxxxx`）を指定 | 正常な環境変数 | Functionを実行する | `HTTP_TIMEOUT_SECONDS`（30秒）以内にタイムアウトし、api_status_code=0・api_error_message にタイムアウト旨のメッセージが含まれるエラーレコードが生成される |
 | IT-10 | 異常 | 環境変数異常（WORKSPACE_LIST が不正JSON） | - | WORKSPACE_LIST に不正なJSON文字列を設定 | Functionを実行する | config.py のfrom_env()で例外発生。エラーログが出力される |
 | IT-11 | 異常 | 環境変数欠落（DCE_ENDPOINT 未設定） | - | DCE_ENDPOINT を削除した環境変数 | Functionを実行する | config.py のfrom_env()で例外発生。エラーログが出力される |
 | IT-12 | 異常 | 環境変数欠落（DCR_IMMUTABLE_ID 未設定） | - | DCR_IMMUTABLE_ID を削除した環境変数 | Functionを実行する | config.py のfrom_env()で例外発生。エラーログが出力される |
@@ -79,3 +79,5 @@
 | UT-20 | adapters/log_analytics_adapter.py | `LogAnalyticsAdapter.send()` | 異常 | LogsIngestionClientがHttpResponseError を発生 | send(records) を呼び出す | 例外がfunction_app.py に伝播する |
 | UT-21 | ports/serving_endpoint_port.py | `ServingEndpointPort` | 正常 | ABCを実装せずにサブクラス定義 | サブクラスをインスタンス化 | TypeError が発生する（ABC強制） |
 | UT-22 | ports/log_sender_port.py | `LogSenderPort` | 正常 | ABCを実装せずにサブクラス定義 | サブクラスをインスタンス化 | TypeError が発生する（ABC強制） |
+| UT-23 | adapters/databricks_adapter.py | `DatabricksAdapter.fetch_endpoints()` | 正常 | WorkspaceClientをモック化 | fetch_endpoints(workspace) を呼び出す | WorkspaceClientに `http_timeout_seconds=HTTP_TIMEOUT_SECONDS` が渡される |
+| UT-24 | adapters/databricks_adapter.py | `DatabricksAdapter.fetch_endpoints()` | 異常 | WorkspaceClientが TimeoutError を発生 | fetch_endpoints(workspace) を呼び出す | TimeoutError が呼び出し元（サービス層）に伝播する |

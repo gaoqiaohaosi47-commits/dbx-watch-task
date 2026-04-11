@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 # Azure 全体で固定の Databricks サービスリソース ID
 AZURE_DATABRICKS_RESOURCE_ID = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
 
+# Databricks API の HTTP タイムアウト（秒）
+# 存在しないホストへの接続待機を抑制する
+HTTP_TIMEOUT_SECONDS = 30
+
 
 class DatabricksAdapter(ServingEndpointPort):
     """Databricks SDK を使ったサービングエンドポイント取得アダプター。
@@ -62,6 +66,10 @@ class DatabricksAdapter(ServingEndpointPort):
             Exception: その他の接続エラー（タイムアウト等）。
         """
         token = self._credential.get_token(f"{AZURE_DATABRICKS_RESOURCE_ID}/.default")
-        w = WorkspaceClient(host=workspace.workspace_url, token=token.token)
+        w = WorkspaceClient(
+            host=workspace.workspace_url,
+            token=token.token,
+            http_timeout_seconds=HTTP_TIMEOUT_SECONDS,
+        )
         endpoints = w.serving_endpoints.list()
         return [ep.as_dict() for ep in endpoints]

@@ -7,7 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.databricks_adapter import AZURE_DATABRICKS_RESOURCE_ID, DatabricksAdapter
+from adapters.databricks_adapter import (
+    AZURE_DATABRICKS_RESOURCE_ID,
+    HTTP_TIMEOUT_SECONDS,
+    DatabricksAdapter,
+)
 from domain.model import WorkspaceConfig
 
 WS = WorkspaceConfig(
@@ -64,7 +68,38 @@ def test_fetch_endpoints_passes_workspace_url_as_host():
         adapter = DatabricksAdapter(credential)
         adapter.fetch_endpoints(WS)
 
-    mock_wc_cls.assert_called_once_with(host=WS.workspace_url, token="fake-token")
+    mock_wc_cls.assert_called_once_with(
+        host=WS.workspace_url,
+        token="fake-token",
+        http_timeout_seconds=HTTP_TIMEOUT_SECONDS,
+    )
+
+
+# UT-extra: WorkspaceClient に http_timeout_seconds が渡される
+def test_fetch_endpoints_passes_http_timeout():
+    credential = _make_credential()
+
+    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
+        mock_wc_cls.return_value.serving_endpoints.list.return_value = []
+        adapter = DatabricksAdapter(credential)
+        adapter.fetch_endpoints(WS)
+
+    _, kwargs = mock_wc_cls.call_args
+    assert kwargs["http_timeout_seconds"] == HTTP_TIMEOUT_SECONDS
+
+
+# UT-extra: タイムアウト例外（TimeoutError）が発生した場合に伝播する
+def test_fetch_endpoints_raises_on_timeout():
+    credential = _make_credential()
+
+    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
+        mock_wc_cls.return_value.serving_endpoints.list.side_effect = TimeoutError(
+            "Connection timed out"
+        )
+        adapter = DatabricksAdapter(credential)
+
+        with pytest.raises(TimeoutError, match="Connection timed out"):
+            adapter.fetch_endpoints(WS)
 
 
 # UT-17: 異常 — WorkspaceClient.list() が例外を raise → そのまま伝播
