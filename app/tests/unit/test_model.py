@@ -7,14 +7,15 @@ import pytest
 
 from domain.model import EndpointRecord, WorkspaceConfig
 
+WS_ID  = "1234567890123456"
 WS_URL = "https://adb-1234567890123456.7.azuredatabricks.net"
 TIMESTAMP = "2026-04-11T10:00:00+00:00"
 
 
 # UT-01: WorkspaceConfig 正常生成
 def test_workspace_config_normal():
-    ws = WorkspaceConfig(workspace_id="1234567890123456", workspace_url=WS_URL, monitor_enabled=True)
-    assert ws.workspace_id == "1234567890123456"
+    ws = WorkspaceConfig(workspace_id=WS_ID, workspace_url=WS_URL, monitor_enabled=True)
+    assert ws.workspace_id == WS_ID
     assert ws.workspace_url == WS_URL
     assert ws.monitor_enabled is True
 
@@ -29,6 +30,7 @@ def test_workspace_config_monitor_disabled():
 def test_endpoint_record_success():
     rec = EndpointRecord(
         time_generated=TIMESTAMP,
+        workspace_id=WS_ID,
         workspace_url=WS_URL,
         api_status_code=200,
         api_error_message=None,
@@ -46,6 +48,7 @@ def test_endpoint_record_success():
 def test_endpoint_record_failure():
     rec = EndpointRecord(
         time_generated=TIMESTAMP,
+        workspace_id=WS_ID,
         workspace_url=WS_URL,
         api_status_code=403,
         api_error_message="Permission denied",
@@ -65,6 +68,7 @@ def test_to_log_dict_success():
     raw = {"name": "my-endpoint", "state": {"ready": "READY"}}
     rec = EndpointRecord(
         time_generated=TIMESTAMP,
+        workspace_id=WS_ID,
         workspace_url=WS_URL,
         api_status_code=200,
         api_error_message=None,
@@ -75,6 +79,7 @@ def test_to_log_dict_success():
     d = rec.to_log_dict()
 
     assert d["TimeGenerated"] == TIMESTAMP
+    assert d["workspace_id"] == WS_ID
     assert d["workspace_url"] == WS_URL
     assert d["api_status_code"] == 200
     assert d["api_error_message"] is None
@@ -87,6 +92,7 @@ def test_to_log_dict_success():
 def test_to_log_dict_failure_null_fields():
     rec = EndpointRecord(
         time_generated=TIMESTAMP,
+        workspace_id=WS_ID,
         workspace_url=WS_URL,
         api_status_code=500,
         api_error_message="Internal error",

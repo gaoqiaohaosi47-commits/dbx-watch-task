@@ -130,6 +130,7 @@ resource "azapi_resource" "custom_table" {
         name = "AppLogs_CL" # ✅ テーブル名と一致
         columns = [
           { name = "TimeGenerated",     type = "datetime" },
+          { name = "workspace_id",      type = "string" },
           { name = "workspace_url",     type = "string" },
           { name = "api_status_code",   type = "int" },
           { name = "api_error_message", type = "string" },
@@ -190,6 +191,7 @@ resource "azapi_resource" "dcr" {
         "Custom-AppLogs" = {
           columns = [
             { name = "TimeGenerated",     type = "datetime" },
+            { name = "workspace_id",      type = "string" },
             { name = "workspace_url",     type = "string" },
             { name = "api_status_code",   type = "int" },
             { name = "api_error_message", type = "string" },

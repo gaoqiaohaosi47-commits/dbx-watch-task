@@ -21,6 +21,7 @@ WS_URL = "https://adb-1234567890123456.7.azuredatabricks.net"
 def _make_record(status=200):
     return EndpointRecord(
         time_generated=TIMESTAMP,
+        workspace_id="1234567890123456",
         workspace_url=WS_URL,
         api_status_code=status,
         api_error_message=None if status == 200 else "error",

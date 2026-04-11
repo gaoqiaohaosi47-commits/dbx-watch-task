@@ -39,6 +39,7 @@ class EndpointRecord:
     """
 
     time_generated: str                         # ISO 8601 UTC 形式
+    workspace_id: str
     workspace_url: str
     api_status_code: int
     api_error_message: Optional[str]
@@ -57,6 +58,7 @@ class EndpointRecord:
         """
         return {
             "TimeGenerated": self.time_generated,
+            "workspace_id": self.workspace_id,
             "workspace_url": self.workspace_url,
             "api_status_code": self.api_status_code,
             "api_error_message": self.api_error_message,

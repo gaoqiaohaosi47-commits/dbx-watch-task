@@ -142,6 +142,5 @@ Databricks SDK の `ServingEndpointDetailed` オブジェクトを `as_dict()` �
 
 ## 8. スコープ外
 
-- `infra/main.tf` のカスタムテーブルスキーマ更新（POCスキーマと実データモデルの差異）
 - AWS アダプターの実装
 - Application Insights の詳細設定

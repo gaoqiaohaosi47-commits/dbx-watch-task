@@ -10,6 +10,7 @@ Log Analytics に送信するレコードは2種類。いずれも同じスキ�
 | Pythonフィールド名（snake_case） | LAカラム名 | LA型 | Null許容 | 備考 |
 |---|---|---|---|---|
 | `time_generated` | `TimeGenerated` | datetime | No | LA標準フィールド。ISO 8601 UTC形式 |
+| `workspace_id` | `workspace_id` | string | No | DatabricksワークスペースID |
 | `workspace_url` | `workspace_url` | string | No | DatabricksワークスペースURL |
 | `api_status_code` | `api_status_code` | int | No | HTTP成功時:200、HTTP失敗時:HTTPコード、非HTTPエラー時:0 |
 | `api_error_message` | `api_error_message` | string | Yes | 成功時:null、失敗時:エラー内容 |
@@ -22,7 +23,7 @@ Log Analytics に送信するレコードは2種類。いずれも同じスキ�
 > | memo.md（日本語） | 本定義（英語） |
 > |---|---|
 > | タイムスタンプ | TimeGenerated |
-> | ワークスペース識別子 | workspace_url |
+> | ワークスペース識別子 | workspace_id / workspace_url |
 > | Databricks REST API実行結果 | api_status_code |
 > | Databricks REST API実行エラー内容 | api_error_message |
 > | サービングエンドポイント情報_エンドポイント名 | endpoint_name |
@@ -137,14 +138,12 @@ class EndpointRecord:
 
 ## Log Analyticsカスタムテーブル定義
 
-> **注意**: `infra/main.tf` のテーブルスキーマ（`AppLogs_CL`）はPOC用のため、
-> 本データモデルに合わせて別途更新が必要（スコープ外）。
-
-更新後に必要なLAカスタムテーブルのスキーマ:
+`infra/main.tf`（`AppLogs_CL`）のスキーマ:
 
 | カラム名 | 型 | 説明 |
 |---|---|---|
 | TimeGenerated | datetime | 必須（LAシステムフィールド） |
+| workspace_id | string | |
 | workspace_url | string | |
 | api_status_code | int | |
 | api_error_message | string | |

@@ -70,6 +70,7 @@ class EndpointMonitorService:
             records = [
                 EndpointRecord(
                     time_generated=timestamp,
+                    workspace_id=workspace.workspace_id,
                     workspace_url=workspace.workspace_url,
                     api_status_code=200,
                     api_error_message=None,
@@ -92,6 +93,7 @@ class EndpointMonitorService:
             )
             return [EndpointRecord(
                 time_generated=timestamp,
+                workspace_id=workspace.workspace_id,
                 workspace_url=workspace.workspace_url,
                 api_status_code=status_code,
                 api_error_message=str(e),
