@@ -12,6 +12,10 @@ terraform {
       source  = "Azure/azapi"
       version = ">= 1.12.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.5.0"
+    }
   }
 }
 
@@ -19,11 +23,26 @@ terraform {
 # variable
 #####################################
 variable "subscription_id" {
-  type    = string
+  type        = string
+  description = "デプロイ先のAzureサブスクリプションID"
+}
+
+variable "create_resource_group" {
+  type        = bool
+  default     = false
+  description = "true: 新規RGを作成 / false: 既存RGを使用"
 }
 
 variable "resource_group_name" {
-  type    = string
+  type        = string
+  default     = ""
+  description = "RG名。create_resource_group=false の場合は既存RG名を必ず指定。true の場合は空なら自動生成。"
+}
+
+variable "location" {
+  type        = string
+  default     = "japaneast"
+  description = "リソースのデプロイリージョン（create_resource_group=true の場合に使用）"
 }
 
 #####################################
@@ -44,21 +63,56 @@ provider "azapi" {
 data "azurerm_client_config" "current" {}
 
 #####################################
-# Resource Group
+# ランダムサフィックス（命名衝突回避）
 #####################################
-data "azurerm_resource_group" "rg" {
-  name = var.resource_group_name
+resource "random_string" "suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
+locals {
+  suffix = random_string.suffix.result
+
+  # RG: 新規 or 既存のいずれかを統一参照
+  rg_name     = var.create_resource_group ? (
+                  var.resource_group_name != "" ? var.resource_group_name : "rg-dbx-watch-${local.suffix}"
+                ) : var.resource_group_name
+  rg_location = var.create_resource_group ? var.location : data.azurerm_resource_group.existing[0].location
+  rg_id       = var.create_resource_group ? azurerm_resource_group.new[0].id : data.azurerm_resource_group.existing[0].id
+}
+
+#####################################
+# Resource Group（新規作成）
+#####################################
+resource "azurerm_resource_group" "new" {
+  count    = var.create_resource_group ? 1 : 0
+  name     = local.rg_name
+  location = var.location
+}
+
+#####################################
+# Resource Group（既存参照）
+#####################################
+data "azurerm_resource_group" "existing" {
+  count = var.create_resource_group ? 0 : 1
+  name  = var.resource_group_name
 }
 
 #####################################
 # Log Analytics Workspace
 #####################################
 resource "azurerm_log_analytics_workspace" "la" {
-  name                = "law-example"
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  name                = "law-dbx-watch-${local.suffix}"
+  location            = local.rg_location
+  resource_group_name = local.rg_name
   sku                 = "PerGB2018"
   retention_in_days   = 30
+
+  depends_on = [
+    azurerm_resource_group.new,
+    data.azurerm_resource_group.existing,
+  ]
 }
 
 #####################################
@@ -75,20 +129,19 @@ resource "azapi_resource" "custom_table" {
       schema = {
         name = "AppLogs_CL" # ✅ テーブル名と一致
         columns = [
-          { name = "TimeGenerated",      type = "datetime" },
-          { name = "workspace_url",      type = "string" },
-          { name = "api_status_code",    type = "int" },
-          { name = "api_error_message",  type = "string" },
-          { name = "endpoint_name",      type = "string" },
-          { name = "endpoint_state",     type = "string" },
-          { name = "endpoint_raw_data",  type = "dynamic" }
+          { name = "TimeGenerated",     type = "datetime" },
+          { name = "workspace_url",     type = "string" },
+          { name = "api_status_code",   type = "int" },
+          { name = "api_error_message", type = "string" },
+          { name = "endpoint_name",     type = "string" },
+          { name = "endpoint_state",    type = "string" },
+          { name = "endpoint_raw_data", type = "dynamic" }
         ]
       }
       retentionInDays = 30
     }
   }
 
-  # テーブル作成後、少し待機
   lifecycle {
     ignore_changes = [body]
   }
@@ -98,9 +151,9 @@ resource "azapi_resource" "custom_table" {
 # Data Collection Endpoint (DCE)
 #####################################
 resource "azurerm_monitor_data_collection_endpoint" "dce" {
-  name                = "dce-example"
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  name                = "dce-dbx-watch-${local.suffix}"
+  location            = local.rg_location
+  resource_group_name = local.rg_name
 
   lifecycle {
     create_before_destroy = true
@@ -113,9 +166,9 @@ resource "azurerm_monitor_data_collection_endpoint" "dce" {
 #####################################
 resource "azapi_resource" "dcr" {
   type      = "Microsoft.Insights/dataCollectionRules@2022-06-01"
-  name      = "dcr-custom-logs"
-  location  = data.azurerm_resource_group.rg.location
-  parent_id = data.azurerm_resource_group.rg.id
+  name      = "dcr-dbx-watch-${local.suffix}"
+  location  = local.rg_location
+  parent_id = local.rg_id
 
   depends_on = [azapi_resource.custom_table]
 
@@ -127,13 +180,13 @@ resource "azapi_resource" "dcr" {
       streamDeclarations = {
         "Custom-AppLogs" = {
           columns = [
-            { name = "TimeGenerated",      type = "datetime" },
-            { name = "workspace_url",      type = "string" },
-            { name = "api_status_code",    type = "int" },
-            { name = "api_error_message",  type = "string" },
-            { name = "endpoint_name",      type = "string" },
-            { name = "endpoint_state",     type = "string" },
-            { name = "endpoint_raw_data",  type = "dynamic" }
+            { name = "TimeGenerated",     type = "datetime" },
+            { name = "workspace_url",     type = "string" },
+            { name = "api_status_code",   type = "int" },
+            { name = "api_error_message", type = "string" },
+            { name = "endpoint_name",     type = "string" },
+            { name = "endpoint_state",    type = "string" },
+            { name = "endpoint_raw_data", type = "dynamic" }
           ]
         }
       }
@@ -163,14 +216,12 @@ resource "azapi_resource" "dcr" {
 
 #####################################
 # RBAC: Terraform 実行者に付与（テスト用）
-# ✅ 正しいロール名に修正
 #####################################
 resource "azurerm_role_assignment" "dcr_ingest_self" {
   scope                = azapi_resource.dcr.id
   role_definition_name = "Monitoring Metrics Publisher"
   principal_id         = data.azurerm_client_config.current.object_id
 
-  # 同時作成時の競合を避ける
   depends_on = [azapi_resource.dcr]
 }
 
@@ -197,7 +248,12 @@ output "table_name" {
   description = "Log Analytics のテーブル名"
 }
 
-output "workspace_id" {
-  value       = azurerm_log_analytics_workspace.la.id
-  description = "Log Analytics Workspace ID"
+output "resource_group_name" {
+  value       = local.rg_name
+  description = "使用したリソースグループ名"
+}
+
+output "suffix" {
+  value       = local.suffix
+  description = "リソース名に付与されたランダムサフィックス"
 }

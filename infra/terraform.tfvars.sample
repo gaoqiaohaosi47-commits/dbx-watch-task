@@ -1,0 +1,36 @@
+# terraform.tfvars.sample
+# このファイルをコピーして terraform.tfvars として使用してください。
+# terraform.tfvars は .gitignore で除外済みのため、実値を書いても安全です。
+#
+# 使い方:
+#   cp terraform.tfvars.sample terraform.tfvars
+#   # 値を編集してから実行
+#   terraform init
+#   terraform apply
+
+#####################################
+# 必須
+#####################################
+subscription_id = "<your-subscription-id>"
+
+#####################################
+# Resource Group
+#
+# ① 既存RGを使う場合（デフォルト）:
+#     create_resource_group = false
+#     resource_group_name   = "<既存RG名>"
+#
+# ② 新規RGを作成する場合:
+#     create_resource_group = true
+#     resource_group_name   = "<作成するRG名>"  # 空文字なら自動生成
+#     location              = "<リージョン>"
+#####################################
+
+# ① 既存RGを使う場合
+create_resource_group = false
+resource_group_name   = "<your-resource-group-name>"
+
+# ② 新規RGを作成する場合（①をコメントアウトしてこちらを有効化）
+# create_resource_group = true
+# resource_group_name   = ""          # 空なら "rg-dbx-watch-<suffix>" で自動生成
+# location              = "japaneast"
