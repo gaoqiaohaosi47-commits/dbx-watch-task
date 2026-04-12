@@ -80,7 +80,7 @@
 | UT-20 | adapters/log_analytics_adapter.py | `LogAnalyticsAdapter.send()` | 異常 | HttpResponseError の呼び出し元への伝播 | LogsIngestionClientがHttpResponseError を発生 | send(records) を呼び出す | 例外がfunction_app.py に伝播する |
 | UT-21 | ports/serving_endpoint_port.py | `ServingEndpointPort` | 正常 | ABC による実装強制（TypeError） | ABCを実装せずにサブクラス定義 | サブクラスをインスタンス化 | TypeError が発生する（ABC強制） |
 | UT-22 | ports/log_sender_port.py | `LogSenderPort` | 正常 | ABC による実装強制（TypeError） | ABCを実装せずにサブクラス定義 | サブクラスをインスタンス化 | TypeError が発生する（ABC強制） |
-| UT-23 | adapters/databricks_adapter.py | `DatabricksAdapter.fetch_endpoints()` | 正常 | http_timeout_seconds の WorkspaceClient への引き渡し | WorkspaceClientをモック化 | fetch_endpoints(workspace) を呼び出す | WorkspaceClientに `http_timeout_seconds=HTTP_TIMEOUT_SECONDS` が渡される |
+| UT-23 | adapters/databricks_adapter.py | `DatabricksAdapter.fetch_endpoints()` | 正常 | Config 経由での http_timeout_seconds・retry_timeout_seconds・host・token の引き渡し | WorkspaceClient と Config をモック化 | fetch_endpoints(workspace) を呼び出す | `Config(host=workspace_url, token=..., http_timeout_seconds=HTTP_TIMEOUT_SECONDS, retry_timeout_seconds=HTTP_TIMEOUT_SECONDS)` が呼ばれ、`WorkspaceClient(config=cfg)` で初期化される |
 | UT-24 | adapters/databricks_adapter.py | `DatabricksAdapter.fetch_endpoints()` | 異常 | TimeoutError のサービス層への伝播 | WorkspaceClientが TimeoutError を発生 | fetch_endpoints(workspace) を呼び出す | TimeoutError が呼び出し元（サービス層）に伝播する |
 | UT-25 | domain/service.py | `EndpointMonitorService.run()` | 正常 | 成功レコードへの workspace_id 記録 | モックが1エンドポイントを返す・workspace_id="ws-id-9999" | run(workspace_list) を呼び出す | 成功レコードの workspace_id が "ws-id-9999" である |
 | UT-26 | domain/service.py | `EndpointMonitorService.run()` | 異常 | エラーレコードへの workspace_id 記録 | モックが例外を発生・workspace_id="ws-id-error" | run(workspace_list) を呼び出す | エラーレコードの workspace_id が "ws-id-error" である |
@@ -102,3 +102,4 @@
 | UT-42 | domain/service.py | `EndpointMonitorService.run()` | 正常 | fetch_endpoints への正しい WorkspaceConfig 引き渡し | 1WS・特定の WorkspaceConfig オブジェクト | run(workspace_list) を呼び出す | fetch_endpoints に渡される引数が元の WorkspaceConfig オブジェクトと一致する |
 | UT-43 | config.py | `Config.from_env()` | 異常 | workspace_url フィールド欠落のバリデーション | WORKSPACE_LIST 要素に workspace_url フィールドが欠落 | from_env() を呼び出す | ValueError が発生する |
 | UT-44 | config.py | `Config.from_env()` | 正常 | 複数 WS の正常読み込み | WORKSPACE_LIST に2件（monitor_enabled=True/False）設定 | from_env() を呼び出す | workspace_list に2件が読み込まれ、各フィールドが正しい値になっている |
+| UT-45 | adapters/databricks_adapter.py | `DatabricksAdapter.fetch_endpoints()` | 異常 | DatabricksError 発生時の status_code 属性付与 | `PermissionDenied` を serving_endpoints.list() から送出 | fetch_endpoints(workspace) を呼び出す | 伝播した例外に `status_code=403` が付与されている |

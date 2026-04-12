@@ -6,14 +6,25 @@ Databricks SDK（WorkspaceClient）を使ってサービングエンドポイン
 Azure マネージドID のトークンを明示的に取得し、WorkspaceClient に渡す POC 実績パターンを採用。
 
 参照: local/poc.py
+
+# タイムアウト設計
+# Config.__init__ が内部で /.well-known/databricks-config を取得する際、
+# SDK 内部の _BaseClient（デフォルト引数、retry_timeout=300s）を使用するため、
+# Config の http_timeout_seconds / retry_timeout_seconds では制御できない。
+# この問題を回避するため、WorkspaceClient の初期化から serving_endpoints.list() まで
+# を daemon スレッドで実行し、HTTP_TIMEOUT_SECONDS で全体を打ち切る。
 """
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Dict, List
 
 from azure.core.credentials import TokenCredential
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.config import Config
+from databricks.sdk.errors import DatabricksError
+from databricks.sdk.errors.platform import STATUS_CODE_MAPPING
 
 from domain.model import WorkspaceConfig
 from ports.serving_endpoint_port import ServingEndpointPort
@@ -23,9 +34,13 @@ logger = logging.getLogger(__name__)
 # Azure 全体で固定の Databricks サービスリソース ID
 AZURE_DATABRICKS_RESOURCE_ID = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
 
-# # Databricks API の HTTP タイムアウト（秒）
-# # 存在しないホストへの接続待機を抑制する
-# HTTP_TIMEOUT_SECONDS = 30
+# Databricks API の HTTP タイムアウト（秒）
+# スレッド全体のタイムアウト上限として使用する
+HTTP_TIMEOUT_SECONDS = 30
+
+# DatabricksError サブクラス → HTTP ステータスコードの逆引きマップ
+# （DatabricksError インスタンスは status_code 属性を持たないため型から解決する）
+_STATUS_FROM_CLASS: Dict[type, int] = {cls: code for code, cls in STATUS_CODE_MAPPING.items()}
 
 
 class DatabricksAdapter(ServingEndpointPort):
@@ -50,8 +65,8 @@ class DatabricksAdapter(ServingEndpointPort):
         """指定ワークスペースの全サービングエンドポイントを取得する。
 
         1. credential.get_token() で Azure Databricks スコープのトークンを取得
-        2. WorkspaceClient(host=workspace_url, token=token.token) を初期化
-        3. serving_endpoints.list() を呼び出し
+        2. daemon スレッドで Config + WorkspaceClient を初期化し serving_endpoints.list() を呼び出す
+        3. HTTP_TIMEOUT_SECONDS 以内に完了しなければ TimeoutError を送出する
         4. 各エンドポイントを as_dict() で dict に変換して返す
 
         Args:
@@ -62,14 +77,40 @@ class DatabricksAdapter(ServingEndpointPort):
                 Databricks API レスポンスの各エンドポイント情報（as_dict() 結果）。
 
         Raises:
+            TimeoutError: HTTP_TIMEOUT_SECONDS 以内に完了しなかった場合。
             databricks.sdk.errors.DatabricksError: 認証・権限・API エラー。
-            Exception: その他の接続エラー（タイムアウト等）。
+                status_code 属性に HTTP ステータスコード（403 等）を付与して再送出する。
+            Exception: その他の接続エラー。
         """
         token = self._credential.get_token(f"{AZURE_DATABRICKS_RESOURCE_ID}/.default")
-        w = WorkspaceClient(
-            host=workspace.workspace_url,
-            token=token.token,
-            # http_timeout_seconds=HTTP_TIMEOUT_SECONDS,
-        )
-        endpoints = w.serving_endpoints.list()
-        return [ep.as_dict() for ep in endpoints]
+
+        result_holder: List[List[Dict[str, Any]]] = []
+        exc_holder: List[BaseException] = []
+
+        def _do_fetch() -> None:
+            try:
+                cfg = Config(
+                    host=workspace.workspace_url,
+                    token=token.token,
+                    http_timeout_seconds=HTTP_TIMEOUT_SECONDS,
+                    retry_timeout_seconds=HTTP_TIMEOUT_SECONDS,
+                )
+                w = WorkspaceClient(config=cfg)
+                result_holder.append([ep.as_dict() for ep in w.serving_endpoints.list()])
+            except DatabricksError as e:
+                # DatabricksError は status_code 属性を持たないため、
+                # サブクラス型から HTTP ステータスコードを解決して付与する。
+                e.status_code = _STATUS_FROM_CLASS.get(type(e), 0)
+                exc_holder.append(e)
+            except BaseException as e:
+                exc_holder.append(e)
+
+        thread = threading.Thread(target=_do_fetch, daemon=True)
+        thread.start()
+        thread.join(timeout=HTTP_TIMEOUT_SECONDS)
+
+        if thread.is_alive():
+            raise TimeoutError(f"Timed out after {HTTP_TIMEOUT_SECONDS}s")
+        if exc_holder:
+            raise exc_holder[0]
+        return result_holder[0]

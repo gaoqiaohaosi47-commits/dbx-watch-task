@@ -3,13 +3,15 @@
 adapters/databricks_adapter.py のユニットテスト。
 対象: DatabricksAdapter.fetch_endpoints()
 """
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
+from databricks.sdk.errors.platform import PermissionDenied
 
 from adapters.databricks_adapter import (
     AZURE_DATABRICKS_RESOURCE_ID,
-    # HTTP_TIMEOUT_SECONDS,
+    HTTP_TIMEOUT_SECONDS,
     DatabricksAdapter,
 )
 from domain.model import WorkspaceConfig
@@ -29,6 +31,23 @@ def _make_credential(token_str="fake-token"):
     return credential
 
 
+@contextmanager
+def _patch_sdk(list_return=None, list_side_effect=None):
+    """WorkspaceClient と Config を同時に patch するヘルパー。
+
+    Config の実体化を防ぐことで DNS 解決等の副作用なしにテストを実行できる。
+    """
+    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc, \
+         patch("adapters.databricks_adapter.Config") as mock_cfg:
+        if list_side_effect is not None:
+            mock_wc.return_value.serving_endpoints.list.side_effect = list_side_effect
+        else:
+            mock_wc.return_value.serving_endpoints.list.return_value = (
+                list_return if list_return is not None else []
+            )
+        yield mock_wc, mock_cfg
+
+
 # UT-16: 正常 — WorkspaceClient がエンドポイント 2 件を返す
 def test_fetch_endpoints_normal():
     credential = _make_credential()
@@ -37,8 +56,7 @@ def test_fetch_endpoints_normal():
     ep2 = MagicMock()
     ep2.as_dict.return_value = {"name": "ep2", "state": {"ready": "NOT_READY"}}
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.return_value = [ep1, ep2]
+    with _patch_sdk(list_return=[ep1, ep2]):
         adapter = DatabricksAdapter(credential)
         result = adapter.fetch_endpoints(WS)
 
@@ -51,51 +69,60 @@ def test_fetch_endpoints_normal():
 def test_fetch_endpoints_uses_databricks_resource_id():
     credential = _make_credential()
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.return_value = []
+    with _patch_sdk():
         adapter = DatabricksAdapter(credential)
         adapter.fetch_endpoints(WS)
 
     credential.get_token.assert_called_once_with(f"{AZURE_DATABRICKS_RESOURCE_ID}/.default")
 
 
-# UT-extra: WorkspaceClient の host に workspace_url が渡される
+# UT-23: Config に workspace_url・token・http_timeout_seconds・retry_timeout_seconds が渡され
+#         WorkspaceClient が config= で初期化される
 def test_fetch_endpoints_passes_workspace_url_as_host():
     credential = _make_credential()
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.return_value = []
+    with _patch_sdk() as (mock_wc, mock_cfg):
         adapter = DatabricksAdapter(credential)
         adapter.fetch_endpoints(WS)
 
-    mock_wc_cls.assert_called_once_with(
+    mock_cfg.assert_called_once_with(
         host=WS.workspace_url,
         token="fake-token",
-        # http_timeout_seconds=HTTP_TIMEOUT_SECONDS,
+        http_timeout_seconds=HTTP_TIMEOUT_SECONDS,
+        retry_timeout_seconds=HTTP_TIMEOUT_SECONDS,
     )
+    mock_wc.assert_called_once_with(config=mock_cfg.return_value)
 
 
-# UT-extra: WorkspaceClient に http_timeout_seconds が渡される
+# UT-extra: Config に http_timeout_seconds=HTTP_TIMEOUT_SECONDS が渡される
 def test_fetch_endpoints_passes_http_timeout():
     credential = _make_credential()
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.return_value = []
+    with _patch_sdk() as (_, mock_cfg):
         adapter = DatabricksAdapter(credential)
         adapter.fetch_endpoints(WS)
 
-    _, kwargs = mock_wc_cls.call_args
-    # assert kwargs["http_timeout_seconds"] == HTTP_TIMEOUT_SECONDS
+    _, kwargs = mock_cfg.call_args
+    assert kwargs["http_timeout_seconds"] == HTTP_TIMEOUT_SECONDS
 
 
-# UT-extra: タイムアウト例外（TimeoutError）が発生した場合に伝播する
+# UT-extra: Config に retry_timeout_seconds=HTTP_TIMEOUT_SECONDS が渡される
+def test_fetch_endpoints_passes_retry_timeout():
+    credential = _make_credential()
+
+    with _patch_sdk() as (_, mock_cfg):
+        adapter = DatabricksAdapter(credential)
+        adapter.fetch_endpoints(WS)
+
+    _, kwargs = mock_cfg.call_args
+    assert kwargs["retry_timeout_seconds"] == HTTP_TIMEOUT_SECONDS
+
+
+# UT-24: タイムアウト例外（TimeoutError）が発生した場合に伝播する
 def test_fetch_endpoints_raises_on_timeout():
     credential = _make_credential()
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.side_effect = TimeoutError(
-            "Connection timed out"
-        )
+    with _patch_sdk(list_side_effect=TimeoutError("Connection timed out")):
         adapter = DatabricksAdapter(credential)
 
         with pytest.raises(TimeoutError, match="Connection timed out"):
@@ -106,8 +133,7 @@ def test_fetch_endpoints_raises_on_timeout():
 def test_fetch_endpoints_raises_on_error():
     credential = _make_credential()
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.side_effect = Exception("API error")
+    with _patch_sdk(list_side_effect=Exception("API error")):
         adapter = DatabricksAdapter(credential)
 
         with pytest.raises(Exception, match="API error"):
@@ -118,8 +144,7 @@ def test_fetch_endpoints_raises_on_error():
 def test_fetch_endpoints_empty():
     credential = _make_credential()
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.return_value = []
+    with _patch_sdk(list_return=[]):
         adapter = DatabricksAdapter(credential)
         result = adapter.fetch_endpoints(WS)
 
@@ -134,10 +159,22 @@ def test_fetch_endpoints_calls_as_dict_for_each():
     ep2 = MagicMock()
     ep2.as_dict.return_value = {"name": "ep2"}
 
-    with patch("adapters.databricks_adapter.WorkspaceClient") as mock_wc_cls:
-        mock_wc_cls.return_value.serving_endpoints.list.return_value = [ep1, ep2]
+    with _patch_sdk(list_return=[ep1, ep2]):
         adapter = DatabricksAdapter(credential)
         adapter.fetch_endpoints(WS)
 
     ep1.as_dict.assert_called_once()
     ep2.as_dict.assert_called_once()
+
+
+# UT-45: DatabricksError 発生時に adapter が status_code 属性を付与して再送出する
+def test_fetch_endpoints_sets_status_code_on_databricks_error():
+    credential = _make_credential()
+
+    with _patch_sdk(list_side_effect=PermissionDenied("denied")):
+        adapter = DatabricksAdapter(credential)
+
+        with pytest.raises(PermissionDenied) as exc_info:
+            adapter.fetch_endpoints(WS)
+
+    assert exc_info.value.status_code == 403
