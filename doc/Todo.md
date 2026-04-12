@@ -87,3 +87,4 @@
 
 - [ ] Timeout処理のバグ修正、テスト反映
 - [ ] 存在しないホスト名をWS URL指定時のタイムアウトが長い、修正する
+- [ ] app/domain/service.pyのapi_status_codeが200指定になっている、返却のHTTPステータスコードを指定する
