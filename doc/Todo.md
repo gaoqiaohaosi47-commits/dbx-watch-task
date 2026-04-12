@@ -88,4 +88,5 @@
 - [x] Timeout処理のバグ修正、テスト反映
 - [x] 存在しないホスト名をWS URL指定時のタイムアウトが長い、修正する
 - [x] app/domain/service.pyのapi_status_codeが200指定になっている、返却のHTTPステータスコードを指定する
-- [ ] Databricks SDKのタイムアウト問題、REST API直の置き換えを検討 
+- [x] Databricks SDKのタイムアウト問題、REST API直の置き換えを検討（→ doc/Architecture.md 参照）
+- [ ] DatabricksAdapter を REST API（requests）に置き換える
