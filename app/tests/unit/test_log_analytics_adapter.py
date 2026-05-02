@@ -1,14 +1,14 @@
 # tests/unit/test_log_analytics_adapter.py
 """
 adapters/log_analytics_adapter.py のユニットテスト。
-対象: LogAnalyticsAdapter.send()
+対象: LogAnalyticsAdapter.send(), _to_log_dict()
 """
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from azure.core.exceptions import HttpResponseError
 
-from adapters.log_analytics_adapter import LogAnalyticsAdapter
+from adapters.log_analytics_adapter import LogAnalyticsAdapter, _to_log_dict
 from domain.model import EndpointRecord
 
 DCE = "https://dce-example.eastus-1.ingest.monitor.azure.com"
@@ -66,14 +66,44 @@ def test_send_empty_records_no_upload():
     mock_client.upload.assert_not_called()
 
 
-# UT-20: 異常 — upload() が HttpResponseError を raise → 伝播する
-def test_send_raises_http_response_error():
+# UT-20: 異常 — upload() が常に失敗 → リトライ後に例外が伝播する
+def test_send_raises_after_retries():
     mock_client = MagicMock()
     mock_client.upload.side_effect = HttpResponseError(message="ingest failed")
     adapter = _make_adapter(mock_client)
 
-    with pytest.raises(HttpResponseError):
+    with patch("adapters.log_analytics_adapter.time.sleep"):
+        with pytest.raises(HttpResponseError):
+            adapter.send([_make_record()])
+
+
+# UT-extra: upload() が失敗した場合、_MAX_RETRIES 回呼ばれる
+def test_send_retries_max_times_on_failure():
+    mock_client = MagicMock()
+    mock_client.upload.side_effect = HttpResponseError(message="ingest failed")
+    adapter = _make_adapter(mock_client)
+
+    with patch("adapters.log_analytics_adapter.time.sleep"):
+        with pytest.raises(HttpResponseError):
+            adapter.send([_make_record()])
+
+    assert mock_client.upload.call_count == 3
+
+
+# UT-extra: 2 回失敗後 3 回目で成功 → 例外は送出されない
+def test_send_succeeds_on_third_attempt():
+    mock_client = MagicMock()
+    mock_client.upload.side_effect = [
+        HttpResponseError(message="fail"),
+        HttpResponseError(message="fail"),
+        None,
+    ]
+    adapter = _make_adapter(mock_client)
+
+    with patch("adapters.log_analytics_adapter.time.sleep"):
         adapter.send([_make_record()])
+
+    assert mock_client.upload.call_count == 3
 
 
 # UT-extra: upload に渡される logs の各要素に TimeGenerated が含まれる
@@ -110,3 +140,28 @@ def test_send_single_record():
     mock_client.upload.assert_called_once()
     _, kwargs = mock_client.upload.call_args
     assert len(kwargs["logs"]) == 1
+
+
+# UT-extra: _to_log_dict が全8キーを返す
+def test_to_log_dict_has_all_expected_keys():
+    rec = _make_record()
+    d = _to_log_dict(rec)
+
+    expected_keys = {
+        "TimeGenerated",
+        "workspace_id",
+        "workspace_url",
+        "api_status_code",
+        "api_error_message",
+        "endpoint_name",
+        "endpoint_state",
+        "endpoint_raw_data",
+    }
+    assert set(d.keys()) == expected_keys
+
+
+# UT-extra: _to_log_dict の TimeGenerated が record.time_generated と一致する
+def test_to_log_dict_maps_time_generated():
+    rec = _make_record()
+    d = _to_log_dict(rec)
+    assert d["TimeGenerated"] == TIMESTAMP

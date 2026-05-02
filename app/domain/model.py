@@ -36,6 +36,8 @@ class EndpointRecord:
         api_status_code = HTTP エラーコード or 0（非 HTTP エラー）
         api_error_message = エラー内容
         endpoint_name, endpoint_state, endpoint_raw_data = None
+
+    LA フィールド名への変換は LogAnalyticsAdapter が担う（adapters/log_analytics_adapter.py 参照）。
     """
 
     time_generated: str                         # ISO 8601 UTC 形式
@@ -46,23 +48,3 @@ class EndpointRecord:
     endpoint_name: Optional[str]
     endpoint_state: Optional[str]
     endpoint_raw_data: Optional[Dict[str, Any]]
-
-    def to_log_dict(self) -> Dict[str, Any]:
-        """Log Analytics インジェスト用の dict に変換する。
-
-        snake_case フィールドを LA フィールド名（TimeGenerated 等）にマッピングする。
-        フィールド名変換はこのメソッド内でのみ行う。
-
-        Returns:
-            Dict[str, Any]: Log Analytics Ingestion API に渡す dict。
-        """
-        return {
-            "TimeGenerated": self.time_generated,
-            "workspace_id": self.workspace_id,
-            "workspace_url": self.workspace_url,
-            "api_status_code": self.api_status_code,
-            "api_error_message": self.api_error_message,
-            "endpoint_name": self.endpoint_name,
-            "endpoint_state": self.endpoint_state,
-            "endpoint_raw_data": self.endpoint_raw_data,
-        }

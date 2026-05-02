@@ -95,39 +95,40 @@
 
 ## レビュー対応
 
-- [ ] **`use_monitor=False` を削除（Timer Trigger 設定修正）**  
+- [x] **`use_monitor=False` を削除（Timer Trigger 設定修正）**  
   `function_app.py` の `@app.timer_trigger` で `use_monitor=False` を指定しているが、
   30分間隔のスケジュールでは非推奨。  
   複数インスタンスにスケールアウトした場合の重複実行を防ぐため、
   `use_monitor=False` を削除して Azure Functions デフォルト（`True`）に戻す。
 
-- [ ] **Config 遅延初期化**  
+- [x] **Config 遅延初期化**  
   `function_app.py` のモジュールレベルで `Config.from_env()` を即時呼び出しているため、
   起動時に失敗すると Function がロード不能になる。  
-  遅延初期化＋モジュールキャッシュパターン（`_config = None` をハンドラ内で初期化）へ変更する。
+  `_ensure_initialized()` パターンへ変更（ハンドラ初回呼び出し時に一度だけ初期化）。
 
-- [ ] **DatabricksAdapter を REST API に置き換え（タイムアウト付き）**  
+- [x] **DatabricksAdapter を REST API に置き換え（タイムアウト付き）**  
   Databricks SDK は Managed ID をサポートしておらず、タイムアウト制御も複雑になるため REST API 直呼び出しへ変更。  
-  `requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=N)` を使用する。
+  `requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)` を使用。
 
-- [ ] **バリデーション堅牢化**  
-  `config.py` の `workspace_url` に HTTPS 必須チェックなど、より詳細なバリデーションを追加する。
+- [x] **バリデーション堅牢化**  
+  `workspace_url`・`dce_endpoint` の HTTPS 必須チェックを追加。  
+  `workspace_url` 末尾スラッシュを `rstrip("/")` で正規化。
 
-- [ ] **Log Analytics 送信リトライ**  
-  `LogAnalyticsAdapter.send()` の `LogsIngestionClient.upload()` 呼び出しに  
-  エクスポーネンシャルバックオフによるリトライ処理を追加する。
+- [x] **Log Analytics 送信リトライ**  
+  `LogAnalyticsAdapter.send()` にエクスポーネンシャルバックオフ（1s, 2s）で最大3回リトライを追加。
 
-- [ ] **logging 改善: logger 経由に統一**  
+- [x] **logging 改善: logger 経由に統一**  
   全モジュールで `logger = logging.getLogger(__name__)` を定義し、  
-  `logging.info` 等の直接呼び出しを `logger.info` / `logger.error` 等へ変更する。
+  `logging.info` 等の直接呼び出しを `logger.info` / `logger.error` 等へ変更。
 
-- [ ] **デバッグログ追加**  
-  主要処理・モジュールの開始・終端に `logger.debug` を追加する。
+- [x] **デバッグログ追加**  
+  `fetch_endpoints`・`send`・`load_config_from_env` の開始・終端に `logger.debug` を追加。
 
-- [ ] **`EndpointRecord.to_log_dict()` を `LogAnalyticsAdapter` へ移動**  
-  モデルは純粋なデータ定義のみ持つべき（ヘキサゴナルアーキ整合）。  
-  LA フィールド名変換ロジック（`TimeGenerated` 等へのマッピング）をアダプター内に移動する。
+- [x] **`EndpointRecord.to_log_dict()` を `LogAnalyticsAdapter` へ移動**  
+  `domain/model.py` から `to_log_dict()` を削除。  
+  `adapters/log_analytics_adapter.py` にモジュールレベル関数 `_to_log_dict()` として移動。
 
-- [ ] **Config 責務の整理**  
-  `config.py` の Azure Functions 固有処理（環境変数ロード）をアダプター/エントリーポイントへ移動。  
-  モデル（`WorkspaceConfig`）はドメイン層に残し、I/F はポートに定義する。
+- [x] **Config 責務の整理**  
+  `Config` を純粋データクラスに変更（`from_env()` を削除）。  
+  環境変数ロード処理を `load_config_from_env()` 関数として分離。  
+  `WorkspaceConfig` はドメイン層（`domain/model.py`）に存置。

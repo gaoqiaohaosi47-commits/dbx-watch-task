@@ -26,7 +26,6 @@ class ServingEndpointPort(ABC):
         Returns:
             List[Dict[str, Any]]: エンドポイント情報の dict リスト。
                 各 dict は少なくとも 'name' と 'state' キーを含む。
-                Databricks SDK の as_dict() 結果を想定。
 
         Raises:
             Exception: 認証失敗・ネットワークエラー等の例外をそのまま raise する。

@@ -1,10 +1,8 @@
 # tests/unit/test_model.py
 """
 domain/model.py のユニットテスト。
-対象: WorkspaceConfig, EndpointRecord, EndpointRecord.to_log_dict()
+対象: WorkspaceConfig, EndpointRecord
 """
-import pytest
-
 from domain.model import EndpointRecord, WorkspaceConfig
 
 WS_ID  = "1234567890123456"
@@ -61,74 +59,3 @@ def test_endpoint_record_failure():
     assert rec.endpoint_name is None
     assert rec.endpoint_state is None
     assert rec.endpoint_raw_data is None
-
-
-# UT-05: to_log_dict() 成功レコード — TimeGenerated キー存在・値が正しい
-def test_to_log_dict_success():
-    raw = {"name": "my-endpoint", "state": {"ready": "READY"}}
-    rec = EndpointRecord(
-        time_generated=TIMESTAMP,
-        workspace_id=WS_ID,
-        workspace_url=WS_URL,
-        api_status_code=200,
-        api_error_message=None,
-        endpoint_name="my-endpoint",
-        endpoint_state="READY",
-        endpoint_raw_data=raw,
-    )
-    d = rec.to_log_dict()
-
-    assert d["TimeGenerated"] == TIMESTAMP
-    assert d["workspace_id"] == WS_ID
-    assert d["workspace_url"] == WS_URL
-    assert d["api_status_code"] == 200
-    assert d["api_error_message"] is None
-    assert d["endpoint_name"] == "my-endpoint"
-    assert d["endpoint_state"] == "READY"
-    assert d["endpoint_raw_data"] == raw
-
-
-# UT-06: to_log_dict() 失敗レコード — endpoint 系フィールドが None
-def test_to_log_dict_failure_null_fields():
-    rec = EndpointRecord(
-        time_generated=TIMESTAMP,
-        workspace_id=WS_ID,
-        workspace_url=WS_URL,
-        api_status_code=500,
-        api_error_message="Internal error",
-        endpoint_name=None,
-        endpoint_state=None,
-        endpoint_raw_data=None,
-    )
-    d = rec.to_log_dict()
-
-    assert d["api_status_code"] == 500
-    assert d["api_error_message"] == "Internal error"
-    assert d["endpoint_name"] is None
-    assert d["endpoint_state"] is None
-    assert d["endpoint_raw_data"] is None
-
-
-# UT-29: to_log_dict() が期待する全8キーを過不足なく返す
-def test_to_log_dict_has_all_expected_keys():
-    rec = EndpointRecord(
-        time_generated=TIMESTAMP,
-        workspace_id=WS_ID,
-        workspace_url=WS_URL,
-        api_status_code=200,
-        api_error_message=None,
-        endpoint_name="ep",
-        endpoint_state="READY",
-        endpoint_raw_data={},
-    )
-    expected_keys = {
-        "TimeGenerated",
-        "workspace_id",
-        "workspace_url",
-        "api_status_code",
-        "api_error_message",
-        "endpoint_name",
-        "endpoint_state",
-        "endpoint_raw_data",
-    }
-    assert set(rec.to_log_dict().keys()) == expected_keys
