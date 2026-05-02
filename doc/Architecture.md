@@ -4,7 +4,7 @@
 
 ### 採用理由
 
-Azure特有の依存（マネージドID認証、Log Analytics Ingestion API、Databricks SDK）をアダプター層に閉じ込める。  
+Azure特有の依存（マネージドID認証、Log Analytics Ingestion API、Databricks REST API）をアダプター層に閉じ込める。  
 将来AWS環境でも稼働させる際は、新しいアダプター実装（IAM認証・CloudWatchなど）を追加するだけでよく、ドメイン層・ポート層は変更不要。
 
 ---
@@ -19,8 +19,8 @@ Azure特有の依存（マネージドID認証、Log Analytics Ingestion API、D
 │  │  function_app.py（エントリーポイント）                  │   │
 │  │  - Timer Trigger ハンドラ                             │   │
 │  │  - DI組み立て（credential → adapters → service）       │   │
-│  │  - Config.from_env() 呼び出し                         │   │
-│  │  - 実行結果ログ出力                                    │   │
+│  │  - Config.from_env() 呼び出し（遅延初期化・キャッシュ）   │   │
+│  │  - 実行結果ログ出力（logger.info）                      │   │
 │  └────────────────────┬─────────────────────────────────┘   │
 │                       │                                     │
 │  ┌────────────────────▼─────────────────────────────────┐   │
@@ -48,7 +48,7 @@ Azure特有の依存（マネージドID認証、Log Analytics Ingestion API、D
     │  requests             │  │  Azure Monitor           │
     │  GET /api/2.0/        │  │  LogsIngestionClient     │
     │  serving-endpoints    │  │  (Logs Ingestion API)    │
-    │  ※移行予定            │  │                         │
+    │                       │  │                         │
     └───────────────────────┘  └─────────────────────────┘
             │                            │
     ┌───────▼────────────┐    ┌──────────▼──────────────┐
@@ -82,7 +82,7 @@ Azure特有の依存（マネージドID認証、Log Analytics Ingestion API、D
    │   └─ DatabricksAdapter.fetch_endpoints(workspace)
    │       ├─ credential.get_token("2ff814a6.../.default")
    │       └─ requests.get(workspace_url/api/2.0/serving-endpoints) → endpoints × N件
-   │          ※現在は Databricks SDK（WorkspaceClient）を使用。移行予定（→ 後述）
+   │          ※Databricks SDK 不使用。requests + Bearer トークンで直接呼び出し
    │       │
    │       成功 → EndpointRecord × N件（エンドポイント毎）生成
    │       失敗 → EndpointRecord × 1件（エラー）生成、次WSへ継続
@@ -91,11 +91,11 @@ Azure特有の依存（マネージドID認証、Log Analytics Ingestion API、D
    │
 4. LogAnalyticsAdapter.send(all_records)
    ├─ records が空 → 早期リターン
-   ├─ record.to_log_dict() で LAフィールド名に変換
+   ├─ アダプター内で LAフィールド名に変換（TimeGenerated 等）
    └─ LogsIngestionClient.upload(rule_id, stream_name, logs) 一括送信
    │
 5. function_app.py
-   └─ 送信件数・結果をログ出力（logging.info）
+   └─ 送信件数・結果をログ出力（logger.info）
    │
 6. 処理終了
 ```
@@ -115,7 +115,7 @@ function_app.py
   ├── adapters/databricks_adapter.py
   │     ├── ports/serving_endpoint_port.py
   │     ├── domain/model.py
-  │     └── [requests, azure-identity]  ※移行後（旧: databricks-sdk）
+  │     └── [requests, azure-identity]
   └── adapters/log_analytics_adapter.py
         ├── ports/log_sender_port.py
         ├── domain/model.py
@@ -165,9 +165,10 @@ Databricks SDK（`databricks-sdk`）の `Config.__init__` が内部で `/.well-k
 
 ### 結論
 
-REST API 直接呼び出しへの移行を推奨。
-- `requirements.txt` から `databricks-sdk` を削除可能
-- daemon スレッドおよび `_STATUS_FROM_CLASS` 逆引きマップが不要になる
+REST API 直接呼び出しへの移行確定。
+- `requirements.txt` から `databricks-sdk` を削除
+- daemon スレッドおよび `_STATUS_FROM_CLASS` 逆引きマップが不要
 - `requests.get(timeout=N)` で単純かつ確実なタイムアウト制御が実現する
+- Managed ID は Databricks SDK がサポートしないため REST API が唯一の選択肢
 
-実装タスク: `doc/Todo.md` 参照（`DatabricksAdapter を REST API（requests）に置き換える`）
+実装タスク: `doc/Todo.md` の「レビュー対応」セクション参照

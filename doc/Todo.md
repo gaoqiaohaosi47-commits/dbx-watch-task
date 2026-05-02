@@ -89,4 +89,45 @@
 - [x] 存在しないホスト名をWS URL指定時のタイムアウトが長い、修正する
 - [x] app/domain/service.pyのapi_status_codeが200指定になっている、返却のHTTPステータスコードを指定する
 - [x] Databricks SDKのタイムアウト問題、REST API直の置き換えを検討（→ doc/Architecture.md 参照）
-- [ ] DatabricksAdapter を REST API（requests）に置き換える
+- [ ] DatabricksAdapter を REST API（requests）に置き換える（→ レビュー対応セクション参照）
+
+---
+
+## レビュー対応
+
+- [ ] **`use_monitor=False` を削除（Timer Trigger 設定修正）**  
+  `function_app.py` の `@app.timer_trigger` で `use_monitor=False` を指定しているが、
+  30分間隔のスケジュールでは非推奨。  
+  複数インスタンスにスケールアウトした場合の重複実行を防ぐため、
+  `use_monitor=False` を削除して Azure Functions デフォルト（`True`）に戻す。
+
+- [ ] **Config 遅延初期化**  
+  `function_app.py` のモジュールレベルで `Config.from_env()` を即時呼び出しているため、
+  起動時に失敗すると Function がロード不能になる。  
+  遅延初期化＋モジュールキャッシュパターン（`_config = None` をハンドラ内で初期化）へ変更する。
+
+- [ ] **DatabricksAdapter を REST API に置き換え（タイムアウト付き）**  
+  Databricks SDK は Managed ID をサポートしておらず、タイムアウト制御も複雑になるため REST API 直呼び出しへ変更。  
+  `requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=N)` を使用する。
+
+- [ ] **バリデーション堅牢化**  
+  `config.py` の `workspace_url` に HTTPS 必須チェックなど、より詳細なバリデーションを追加する。
+
+- [ ] **Log Analytics 送信リトライ**  
+  `LogAnalyticsAdapter.send()` の `LogsIngestionClient.upload()` 呼び出しに  
+  エクスポーネンシャルバックオフによるリトライ処理を追加する。
+
+- [ ] **logging 改善: logger 経由に統一**  
+  全モジュールで `logger = logging.getLogger(__name__)` を定義し、  
+  `logging.info` 等の直接呼び出しを `logger.info` / `logger.error` 等へ変更する。
+
+- [ ] **デバッグログ追加**  
+  主要処理・モジュールの開始・終端に `logger.debug` を追加する。
+
+- [ ] **`EndpointRecord.to_log_dict()` を `LogAnalyticsAdapter` へ移動**  
+  モデルは純粋なデータ定義のみ持つべき（ヘキサゴナルアーキ整合）。  
+  LA フィールド名変換ロジック（`TimeGenerated` 等へのマッピング）をアダプター内に移動する。
+
+- [ ] **Config 責務の整理**  
+  `config.py` の Azure Functions 固有処理（環境変数ロード）をアダプター/エントリーポイントへ移動。  
+  モデル（`WorkspaceConfig`）はドメイン層に残し、I/F はポートに定義する。

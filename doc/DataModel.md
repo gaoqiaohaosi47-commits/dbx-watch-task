@@ -129,9 +129,8 @@ class EndpointRecord:
     endpoint_state: Optional[str]
     endpoint_raw_data: Optional[Dict[str, Any]]
 
-    def to_log_dict(self) -> Dict[str, Any]:
-        """LAフィールド名（TimeGenerated等）にマッピングしたdictを返す"""
-        ...
+    # to_log_dict() はヘキサゴナルアーキ整合のため LogAnalyticsAdapter へ移動
+    # LAフィールド名変換は adapters/log_analytics_adapter.py が担う
 ```
 
 ---

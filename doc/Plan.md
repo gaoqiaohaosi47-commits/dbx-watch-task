@@ -32,7 +32,7 @@ Timer Trigger 起動
 | 層 | ディレクトリ/ファイル | 責務 |
 |---|---|---|
 | エントリーポイント | `function_app.py` | Timer Triggerハンドラ、DI組み立て |
-| 設定 | `config.py` | 環境変数ロード・バリデーション |
+| 設定 | `config.py` | WorkspaceConfig 生成ファクトリ（Azure Functions 固有処理はエントリーポイントへ） |
 | ドメイン（モデル） | `domain/model.py` | データクラス定義（Azure/Databricks依存なし） |
 | ドメイン（サービス） | `domain/service.py` | ビジネスロジック・オーケストレーション |
 | ポート（抽象） | `ports/` | 外部依存の抽象インターフェース（ABC） |
@@ -67,25 +67,33 @@ app/
 
 ## 4. 主要設計決定
 
-### 4-1. WorkspaceClientはWS毎に初期化
+### 4-1. REST API はWS毎にリクエスト（credential 共有）
 
-Databricks SDK の `WorkspaceClient` は1ホストに束縛されるため、
-`WORKSPACE_LIST` の要素毎（ホストURLが異なる）に新規インスタンスを作成する。
-`credential` オブジェクトは共有して再利用。
+`WORKSPACE_LIST` の要素毎に `requests.get()` を呼び出す。
+`credential` オブジェクトは共有して再利用し、都度トークンを取得して Bearer ヘッダーにセットする。
+Databricks SDK（`WorkspaceClient`）は使用しない。
 
-### 4-2. Databricksトークン明示取得パターン
-
-POC（`local/poc.py`）の実績パターンを採用:
 ```python
 token = credential.get_token(f"{AZURE_DATABRICKS_RESOURCE_ID}/.default")
-w = WorkspaceClient(host=workspace_url, token=token.token)
+resp = requests.get(
+    f"{workspace_url}/api/2.0/serving-endpoints",
+    headers={"Authorization": f"Bearer {token.token}"},
+    timeout=N,
+)
 ```
-DatabricksリソースID（`2ff814a6-3304-4ab8-85cb-cd0e6f879c1d`）はAzure全体で固定の定数。
 
-### 4-3. `endpoint_raw_data` は `as_dict()` 結果をそのまま格納
+### 4-2. Managed ID から Databricks トークンを取得し Bearer ヘッダーへ設定
 
-Databricks SDK の `ServingEndpointDetailed` オブジェクトを `as_dict()` でdict化し、
-`endpoint_raw_data` に格納する。LAのカラム定義変更なしに全フィールドをクエリ可能。
+`credential.get_token("2ff814a6-3304-4ab8-85cb-cd0e6f879c1d/.default")` で
+Databricks リソース ID 向けトークンを取得し、REST API の `Authorization: Bearer` ヘッダーに使用する。  
+DatabricksリソースID（`2ff814a6-3304-4ab8-85cb-cd0e6f879c1d`）はAzure全体で固定の定数。  
+Databricks SDK は Managed ID をサポートしていないため使用しない。
+
+### 4-3. `endpoint_raw_data` は REST API レスポンス JSON をそのまま格納
+
+`response.json()["endpoints"]` の各要素（dict）を `endpoint_raw_data` に格納する。  
+LAのカラム定義変更なしに全フィールドをクエリ可能。  
+（`as_dict()` は Databricks SDK のメソッドのため不使用）
 
 ### 4-4. 非HTTPエラー時の `api_status_code`
 
@@ -93,10 +101,11 @@ Databricks SDK の `ServingEndpointDetailed` オブジェクトを `as_dict()` �
 - `api_status_code = 0`
 - `api_error_message` = 例外メッセージ
 
-### 4-5. フィールド名変換の一元化
+### 4-5. フィールド名変換は `LogAnalyticsAdapter` が担う
 
-`EndpointRecord`（Pythonic snake_case）→ Log Analytics フィールド名（`TimeGenerated`等）への
-変換は `EndpointRecord.to_log_dict()` 内のみで行う。アダプター側では変換しない。
+`EndpointRecord`（Pythonic snake_case）→ Log Analytics フィールド名（`TimeGenerated` 等）への
+変換は `LogAnalyticsAdapter` 内で行う。  
+モデル（`EndpointRecord`）はドメイン層のデータ定義のみ持ち、変換ロジックを持たない（ヘキサゴナルアーキ整合）。
 
 ### 4-6. `monitor_enabled=False` のフィルタはサービス層で処理
 
@@ -108,6 +117,13 @@ Databricks SDK の `ServingEndpointDetailed` オブジェクトを `as_dict()` �
 各ワークスペースの処理を `try/except` で囲み、1件失敗しても他WSの処理を継続する。
 失敗ワークスペースはエラーレコード1件を生成してリストに追加。
 
+### 4-8. Config 遅延初期化
+
+`function_app.py` のモジュールレベルで `Config.from_env()` を即時呼び出すと、
+環境変数未設定の場合に Function 自体がロード不能になる。  
+`_config: Config | None = None` をモジュールレベルで宣言し、Timer Trigger ハンドラ内で
+初回のみ初期化するキャッシュパターンを採用する。起動失敗時もエラーログを出力して継続。
+
 ---
 
 ## 5. 依存パッケージ
@@ -117,7 +133,7 @@ Databricks SDK の `ServingEndpointDetailed` オブジェクトを `as_dict()` �
 | `azure-functions` | Azure Functions ランタイムバインディング |
 | `azure-identity` | `DefaultAzureCredential` / `ManagedIdentityCredential` |
 | `azure-monitor-ingestion` | `LogsIngestionClient`（Log Ingestion API） |
-| `databricks-sdk` | `WorkspaceClient`（サービングエンドポイント取得） |
+| `requests` | Databricks REST API 呼び出し（`databricks-sdk` を使用しない） |
 
 ---
 
@@ -136,7 +152,10 @@ Databricks SDK の `ServingEndpointDetailed` オブジェクトを `as_dict()` �
 
 | 設定値 | 意味 |
 |---|---|
-| `0 */5 * * * *` | 5分毎（実装時に要件に合わせて変更） |
+| `0 */30 * * * *` | 30分毎 |
+
+`use_monitor` はデフォルト（`True`）のままとする。1分以上のインターバルでは `use_monitor=False` は非推奨。
+スケールアウト時に複数インスタンスが同時起動しても重複実行を防ぐ分散モニターが有効になる。
 
 ---
 
