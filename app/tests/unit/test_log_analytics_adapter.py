@@ -77,7 +77,7 @@ def test_send_raises_after_retries():
             adapter.send([_make_record()])
 
 
-# UT-extra: upload() が失敗した場合、_MAX_RETRIES 回呼ばれる
+# UT-50: upload() が常に失敗 → _MAX_RETRIES 回呼ばれて例外が伝播する
 def test_send_retries_max_times_on_failure():
     mock_client = MagicMock()
     mock_client.upload.side_effect = HttpResponseError(message="ingest failed")
@@ -90,7 +90,7 @@ def test_send_retries_max_times_on_failure():
     assert mock_client.upload.call_count == 3
 
 
-# UT-extra: 2 回失敗後 3 回目で成功 → 例外は送出されない
+# UT-49: 2 回失敗後 3 回目で成功 → 例外は送出されない
 def test_send_succeeds_on_third_attempt():
     mock_client = MagicMock()
     mock_client.upload.side_effect = [
@@ -142,7 +142,53 @@ def test_send_single_record():
     assert len(kwargs["logs"]) == 1
 
 
-# UT-extra: _to_log_dict が全8キーを返す
+# UT-05: _to_log_dict() 成功レコード — 全フィールドの変換確認
+def test_to_log_dict_success_record():
+    raw = {"name": "ep1", "state": {"ready": "READY"}}
+    rec = EndpointRecord(
+        time_generated=TIMESTAMP,
+        workspace_id="1234567890123456",
+        workspace_url=WS_URL,
+        api_status_code=200,
+        api_error_message=None,
+        endpoint_name="ep1",
+        endpoint_state="READY",
+        endpoint_raw_data=raw,
+    )
+    d = _to_log_dict(rec)
+
+    assert d["TimeGenerated"] == TIMESTAMP
+    assert d["workspace_id"] == "1234567890123456"
+    assert d["workspace_url"] == WS_URL
+    assert d["api_status_code"] == 200
+    assert d["api_error_message"] is None
+    assert d["endpoint_name"] == "ep1"
+    assert d["endpoint_state"] == "READY"
+    assert d["endpoint_raw_data"] == raw
+
+
+# UT-06: _to_log_dict() 失敗レコード — endpoint 系フィールドが None
+def test_to_log_dict_failure_null_fields():
+    rec = EndpointRecord(
+        time_generated=TIMESTAMP,
+        workspace_id="1234567890123456",
+        workspace_url=WS_URL,
+        api_status_code=500,
+        api_error_message="Internal error",
+        endpoint_name=None,
+        endpoint_state=None,
+        endpoint_raw_data=None,
+    )
+    d = _to_log_dict(rec)
+
+    assert d["api_status_code"] == 500
+    assert d["api_error_message"] == "Internal error"
+    assert d["endpoint_name"] is None
+    assert d["endpoint_state"] is None
+    assert d["endpoint_raw_data"] is None
+
+
+# UT-29: _to_log_dict() が全8キーを返す
 def test_to_log_dict_has_all_expected_keys():
     rec = _make_record()
     d = _to_log_dict(rec)
@@ -158,10 +204,3 @@ def test_to_log_dict_has_all_expected_keys():
         "endpoint_raw_data",
     }
     assert set(d.keys()) == expected_keys
-
-
-# UT-extra: _to_log_dict の TimeGenerated が record.time_generated と一致する
-def test_to_log_dict_maps_time_generated():
-    rec = _make_record()
-    d = _to_log_dict(rec)
-    assert d["TimeGenerated"] == TIMESTAMP

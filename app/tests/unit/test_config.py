@@ -152,7 +152,7 @@ def test_from_env_multiple_workspaces(monkeypatch):
     assert config.workspace_list[1].monitor_enabled is False
 
 
-# UT-extra: workspace_url が http:// → ValueError
+# UT-46: workspace_url が http:// → ValueError
 def test_from_env_workspace_url_not_https(monkeypatch):
     _set_all_env(
         monkeypatch,
@@ -163,7 +163,7 @@ def test_from_env_workspace_url_not_https(monkeypatch):
         load_config_from_env()
 
 
-# UT-extra: DCE_ENDPOINT が http:// → ValueError
+# UT-47: DCE_ENDPOINT が http:// → ValueError
 def test_from_env_dce_endpoint_not_https(monkeypatch):
     _set_all_env(monkeypatch)
     monkeypatch.setenv("DCE_ENDPOINT", "http://dce-example.eastus-1.ingest.monitor.azure.com")
@@ -172,7 +172,7 @@ def test_from_env_dce_endpoint_not_https(monkeypatch):
         load_config_from_env()
 
 
-# UT-extra: workspace_url の末尾スラッシュが除去される
+# UT-48: workspace_url の末尾スラッシュが除去される
 def test_from_env_workspace_url_trailing_slash_stripped(monkeypatch):
     _set_all_env(
         monkeypatch,

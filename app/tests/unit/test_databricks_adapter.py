@@ -73,7 +73,7 @@ def test_fetch_endpoints_uses_databricks_resource_id():
     credential.get_token.assert_called_once_with(f"{AZURE_DATABRICKS_RESOURCE_ID}/.default")
 
 
-# UT-23: requests.get に workspace_url ベースの URL と timeout が渡される
+# UT-23 / UT-39: requests.get に workspace_url ベースの URL・timeout が渡される
 def test_fetch_endpoints_passes_url_and_timeout():
     credential = _make_credential()
 
