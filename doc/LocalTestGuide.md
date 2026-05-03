@@ -57,6 +57,47 @@ pip install -r requirements.txt
 }
 ```
 
+### `WORKSPACE_LIST` の値を生成する
+
+`local.settings.json` の `WORKSPACE_LIST` は **1行のエスケープ済み JSON 文字列** が必要です。  
+以下のコマンドで、読みやすい JSON ファイルから変換できます。
+
+**前提:** `workspace_list.json` を用意する（例）
+
+```json
+[
+  {
+    "workspace_id": "1234567890",
+    "workspace_url": "https://adb-1234567890.1.azuredatabricks.net",
+    "monitor_enabled": true
+  }
+]
+```
+
+**Linux / Bash（jq が必要）**
+
+```bash
+jq -c . workspace_list.json | python3 -c \
+  "import sys, json; print(json.dumps(sys.stdin.read().strip()))"
+```
+
+出力例（この値を `WORKSPACE_LIST` にそのまま貼り付け）:
+
+```
+"[{\"workspace_id\":\"1234567890\",\"workspace_url\":\"https://adb-1234567890.1.azuredatabricks.net\",\"monitor_enabled\":true}]"
+```
+
+**Windows / PowerShell**
+
+```powershell
+$compact = (@(Get-Content workspace_list.json -Raw | ConvertFrom-Json) | ConvertTo-Json -Compress -Depth 10)
+'"' + ($compact -replace '"', '\"') + '"'
+```
+
+出力形式は Linux と同様です。
+
+---
+
 Terraform を使っている場合は `infra/` ディレクトリで以下を実行すると値を確認できます:
 
 ```bash
