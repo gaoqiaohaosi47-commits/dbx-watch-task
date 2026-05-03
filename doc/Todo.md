@@ -75,7 +75,7 @@
 - [x] `test_databricks_adapter.py`: DatabricksAdapter テスト（SDK モック）
 - [x] `test_log_analytics_adapter.py`: LogAnalyticsAdapter テスト（クライアントモック）
 - [x] `test_ports.py`: ServingEndpointPort / LogSenderPort ABC 強制テスト
-- 実行結果: **33 passed** (`pytest --tb=short -q`)
+- 実行結果: **60 passed** (`pytest --tb=short -q`)
 
 ### 内部結合テスト
 
